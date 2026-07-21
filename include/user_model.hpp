@@ -1,47 +1,47 @@
 #ifndef USER_MODEL_HPP
 #define USER_MODEL_HPP
 
-#include "iostream"
-#include "string"
-#include "vector"
-#include "unordered_map"
+#include <iostream>
+#include <string>
+#include <vector>
+#include <unordered_map>
 
-// Live statistics per platform
 struct PlatformStats {
-    int rating;
-    int totalSolvedCount;
-    int graphSolvedCount;
-    int dpSolvedCount;
-    long long lastSyncedTimestamp; // Epoch seconds for cache TTL validation
+    int rating = 0;
+    int totalSolvedCount = 0;
+    int graphSolvedCount = 0;
+    int dpSolvedCount = 0;
+    long long lastSyncedTimestamp = 0; 
 };
 
-// Historical snapshot for tracking progress over time
 struct HistoricalSnapshot {
-    long long timestamp;
-    int codeforcesRating;
-    int leetcodeSolvedCount;
-    int atcoderRating;
+    long long timestamp = 0;
+    int codeforcesRating = 0;
+    int leetcodeSolvedCount = 0;
+    int atcoderRating = 0;
 };
 
-// Main user profile structure
 struct UserProfile {
     std::string username;
     std::string passwordHash;
-    std::string userRole; // "user" or "admin" (AuthZ)
+    std::string userRole; 
     
-    // Linked handles
     std::string codeforcesHandle;
     std::string leetcodeHandle;
     std::string atcoderHandle;
     
-    // Stats & Progress
+    // Target Ratings for Goal Tracking
+    int codeforcesTargetRating = 0;
+    int leetcodeTargetRating = 0;
+    int atcoderTargetRating = 0;
+    
     PlatformStats codeforcesStats;
     PlatformStats leetcodeStats;
     PlatformStats atcoderStats;
-    std::vector<HistoricalSnapshot> progressHistory;
+    
+    std::vector<HistoricalSnapshot> progressHistory; 
 };
 
-// Global memory map for O(1) user profile lookups
 extern std::unordered_map<std::string, UserProfile> globalUserDatabase;
 
 #endif // USER_MODEL_HPP
