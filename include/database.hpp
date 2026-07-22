@@ -46,3 +46,6 @@ TargetGoals getTargetGoals(const std::string& username);
 // DB History & Leaderboard functions
 std::vector<HistorySnapshot> getHistorySnapshots(const std::string& username);
 std::vector<LeaderboardEntry> getLeaderboard();
+
+// ---> NEW: Added the missing declaration here! <---
+bool updateUserStatsInDB(const std::string& username, int total_solved, int total_rating);

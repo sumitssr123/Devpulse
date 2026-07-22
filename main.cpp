@@ -57,10 +57,9 @@ int main() {
         res.set_content(json_response.dump(), "application/json");
     });
 
-    // 4. API ROUTE 2: Live SYNC Route (Wired to Codeforces, LeetCode, and AtCoder)
+    // 4. API ROUTE 2: Live SYNC Route
     svr.Post("/api/sync", [&](const httplib::Request& req, httplib::Response& res) {
         try {
-            // Parse the incoming JSON payload from React (e.g., {"username": "sumit_coder"})
             json req_body = json::parse(req.body);
             std::string username = req_body.value("username", "");
 
@@ -73,20 +72,28 @@ int main() {
 
             std::cout << "\n[API] Sync requested for user: " << username << "\n";
 
-            // Step A: Retrieve saved platform handles from SQLite
             UserData userStats = getUserDataFromDB(username);
 
-            // Use configured handles or fall back to the username itself
             std::string cf_handle = !userStats.cf_handle.empty() ? userStats.cf_handle : username;
             std::string lc_handle = !userStats.lc_handle.empty() ? userStats.lc_handle : username;
             std::string ac_handle = !userStats.ac_handle.empty() ? userStats.ac_handle : username;
 
-            // Step B: Fetch live/fallback stats across all 3 platforms
             PlatformStats cf_stats = fetchCodeforcesData(cf_handle);
             PlatformStats lc_stats = fetchLeetcodeData(lc_handle);
             PlatformStats ac_stats = fetchAtcoderData(ac_handle);
 
-            // Step C: Construct response object for React
+            // ---> NEW: Save the aggregated stats to SQLite! <---
+            int total_solved = cf_stats.totalSolvedCount + lc_stats.totalSolvedCount + ac_stats.totalSolvedCount;
+            int total_rating = cf_stats.rating + lc_stats.rating + ac_stats.rating;
+            
+            // Update the live stats for the leaderboard
+            updateUserStatsInDB(username, total_solved, total_rating);
+
+            // Save a historical snapshot for future graphs
+            saveProgressSnapshot(username, cf_stats.rating, cf_stats.totalSolvedCount, 
+                                           lc_stats.rating, lc_stats.totalSolvedCount, 
+                                           ac_stats.rating, ac_stats.totalSolvedCount);
+
             json json_response = {
                 {"status", "success"},
                 {"username", username},
@@ -126,13 +133,22 @@ int main() {
         }
     });
 
-    // 5. API ROUTE 3: Leaderboard
+    // 5. API ROUTE 3: Leaderboard (NOW REAL DATA)
     svr.Get("/api/leaderboard", [&](const httplib::Request& req, httplib::Response& res) {
         json json_response = json::array();
 
-        // Fallback leaderboard data until getLeaderboardFromDB() is integrated
-        json_response.push_back({{"rank", 1}, {"username", "DevMaster"}, {"total_solved", 540}, {"total_rating", 3400}});
-        json_response.push_back({{"rank", 2}, {"username", "AlgoKing"}, {"total_solved", 412}, {"total_rating", 2900}});
+        // Fetch real data from the SQLite database
+        std::vector<LeaderboardEntry> topUsers = getLeaderboard();
+        
+        int rank = 1;
+        for (const auto& u : topUsers) {
+            json_response.push_back({
+                {"rank", rank++},
+                {"username", u.username},
+                {"total_solved", u.total_solved},
+                {"total_rating", u.total_rating}
+            });
+        }
 
         res.set_content(json_response.dump(), "application/json");
     });

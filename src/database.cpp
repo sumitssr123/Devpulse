@@ -1,6 +1,7 @@
 #include "../include/database.hpp"
 #include "sqlite3.h"
 #include <iostream>
+#include <string>
 
 bool updateHandlesInDB(const std::string& username, const std::string& cf_handle, const std::string& lc_handle, const std::string& ac_handle) {
     sqlite3* db;
@@ -140,28 +141,23 @@ std::vector<HistorySnapshot> getHistorySnapshots(const std::string& username) {
     return history;
 }
 
-// --- NEW LEADERBOARD QUERY ---
 std::vector<LeaderboardEntry> getLeaderboard() {
     std::vector<LeaderboardEntry> board;
     sqlite3* db;
     if (sqlite3_open("devpulse.db", &db) != SQLITE_OK) return board;
 
-    // Subquery: Get the highest 'id' (most recent snapshot) for each user.
-    // Main query: Calculate total stats from those most recent snapshots and sort them.
-    std::string sql = R"(
-        SELECT username, 
-               (cf_rating + lc_rating + ac_rating) AS total_rating, 
-               (cf_solved + lc_solved + ac_solved) AS total_solved
-        FROM HISTORY_SNAPSHOTS 
-        WHERE id IN (SELECT MAX(id) FROM HISTORY_SNAPSHOTS GROUP BY username)
-        ORDER BY total_solved DESC;
-    )";
+    // Pull directly from the USERS table for the live leaderboard
+    std::string sql = "SELECT username, total_rating, total_solved FROM USERS "
+                      "WHERE total_solved IS NOT NULL "
+                      "ORDER BY total_solved DESC;";
     
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             LeaderboardEntry entry;
-            if (sqlite3_column_text(stmt, 0)) entry.username = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            if (sqlite3_column_text(stmt, 0)) {
+                entry.username = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            }
             entry.total_rating = sqlite3_column_int(stmt, 1);
             entry.total_solved = sqlite3_column_int(stmt, 2);
             board.push_back(entry);
@@ -171,4 +167,24 @@ std::vector<LeaderboardEntry> getLeaderboard() {
     sqlite3_finalize(stmt);
     sqlite3_close(db);
     return board;
+}
+
+bool updateUserStatsInDB(const std::string& username, int total_solved, int total_rating) {
+    sqlite3* db;
+    if (sqlite3_open("devpulse.db", &db) != SQLITE_OK) return false;
+
+    std::string sql = "UPDATE USERS SET total_solved = " + std::to_string(total_solved) + 
+                      ", total_rating = " + std::to_string(total_rating) + 
+                      " WHERE username = '" + username + "';";
+    
+    char* errMsg = nullptr;
+    int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg);
+
+    if (rc != SQLITE_OK) {
+        std::cerr << "[DB ERROR] Failed to update user stats: " << errMsg << "\n";
+        sqlite3_free(errMsg);
+    }
+
+    sqlite3_close(db);
+    return rc == SQLITE_OK;
 }
