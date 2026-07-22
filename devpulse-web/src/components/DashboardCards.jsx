@@ -1,52 +1,99 @@
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Code2, Braces, Terminal } from 'lucide-react';
 
-const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.15 } } };
-const cardVariants = { hidden: { y: 30, opacity: 0 }, show: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 12 } } };
+export default function DashboardCards({ globalUsername }) {
+  // Individual state for each card, falling back to the global username
+  const [cfHandle, setCfHandle] = useState(globalUsername || '');
+  const [lcHandle, setLcHandle] = useState(globalUsername || '');
+  const [acHandle, setAcHandle] = useState(globalUsername || '');
 
-export default function DashboardCards({ platformData }) {
-  if (!platformData) return null;
+  const handleIndividualSync = (platform, handle) => {
+    console.log(`Syncing ${platform} for handle: ${handle}`);
+    // Here you will call your C++ backend for the specific platform
+  };
+
+  const platforms = [
+    { 
+      name: 'Codeforces', 
+      handle: cfHandle, 
+      setHandle: setCfHandle,
+      color: 'blue', 
+      rating: 1456, solved: 50, graphs: 10, dp: 15,
+      borderStyle: 'border-t-blue-500'
+    },
+    { 
+      name: 'LeetCode', 
+      handle: lcHandle, 
+      setHandle: setLcHandle,
+      color: 'orange', 
+      rating: 1500, solved: 269, graphs: 15, dp: 20,
+      borderStyle: 'border-t-orange-400'
+    },
+    { 
+      name: 'AtCoder', 
+      handle: acHandle, 
+      setHandle: setAcHandle,
+      color: 'green', 
+      rating: 329, solved: 20, graphs: 2, dp: 5,
+      borderStyle: 'border-t-green-500'
+    }
+  ];
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="show" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
-      <PlatformCard title="Codeforces" color="#3b82f6" icon={<Terminal size={24} color="#3b82f6"/>} data={platformData.codeforces} />
-      <PlatformCard title="LeetCode" color="#f59e0b" icon={<Code2 size={24} color="#f59e0b"/>} data={platformData.leetcode} />
-      <PlatformCard title="AtCoder" color="#10b981" icon={<Braces size={24} color="#10b981"/>} data={platformData.atcoder} />
-    </motion.div>
-  );
-}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+      {platforms.map((p, idx) => (
+        <motion.div 
+          key={p.name}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: idx * 0.1 }}
+          className={`bg-white rounded-xl shadow-sm border border-gray-100 border-t-4 ${p.borderStyle} p-5`}
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-lg text-slate-800">{p.name}</h3>
+          </div>
 
-function PlatformCard({ title, color, icon, data }) {
-  return (
-    <motion.div variants={cardVariants} whileHover={{ y: -8, boxShadow: "0px 12px 24px rgba(0,0,0,0.1)" }} style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', borderTop: `4px solid ${color}`, boxShadow: '0px 4px 10px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
-        {icon}
-        <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem' }}>{title}</h3>
-      </div>
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ color: '#64748b' }}>Handle</span>
-        <span style={{ fontWeight: 'bold', color: '#334155' }}>{data.handle}</span>
-      </div>
-      
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <StatBox label="Rating" value={data.rating} color={color} />
-        <StatBox label="Solved" value={data.total_solved} color={color} />
-      </div>
+          {/* Individual Username Input */}
+          <div className="flex gap-2 mb-4">
+            <input 
+              type="text" 
+              value={p.handle}
+              onChange={(e) => p.setHandle(e.target.value)}
+              placeholder="Username"
+              className="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-1.5 text-sm outline-none focus:border-blue-400"
+            />
+            <button 
+              onClick={() => handleIndividualSync(p.name, p.handle)}
+              className="bg-slate-800 text-white px-3 py-1.5 rounded-md text-sm hover:bg-slate-700 transition"
+            >
+              Sync
+            </button>
+          </div>
 
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <StatBox label="Graphs" value={data.graph_solved} color="#64748b" small />
-        <StatBox label="DP" value={data.dp_solved} color="#64748b" small />
-      </div>
-    </motion.div>
-  );
-}
-
-function StatBox({ label, value, color, small }) {
-  return (
-    <div style={{ flex: 1, backgroundColor: '#f8fafc', padding: small ? '8px' : '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-      <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{label}</div>
-      <div style={{ fontSize: small ? '1.1rem' : '1.5rem', fontWeight: 'bold', color: color }}>{value}</div>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="bg-slate-50 p-3 rounded-lg flex flex-col items-center justify-center border border-slate-100">
+              <span className="text-xs text-slate-400 font-semibold tracking-wider">RATING</span>
+              <span className={`text-2xl font-bold text-${p.color}-500`}>{p.rating}</span>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-lg flex flex-col items-center justify-center border border-slate-100">
+              <span className="text-xs text-slate-400 font-semibold tracking-wider">SOLVED</span>
+              <span className="text-2xl font-bold text-slate-700">{p.solved}</span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 py-2 rounded-lg flex flex-col items-center justify-center border border-slate-100">
+              <span className="text-xs text-slate-400 font-semibold tracking-wider">GRAPHS</span>
+              <span className="text-lg font-bold text-slate-600">{p.graphs}</span>
+            </div>
+            <div className="bg-slate-50 py-2 rounded-lg flex flex-col items-center justify-center border border-slate-100">
+              <span className="text-xs text-slate-400 font-semibold tracking-wider">DP</span>
+              <span className="text-lg font-bold text-slate-600">{p.dp}</span>
+            </div>
+          </div>
+        </motion.div>
+      ))}
     </div>
   );
 }

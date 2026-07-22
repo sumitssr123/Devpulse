@@ -1,97 +1,124 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, LayoutDashboard, Trophy } from 'lucide-react';
-import SyncButton from './components/SyncButton';
-import DashboardCards from './components/DashboardCards';
-import Leaderboard from './components/Leaderboard';
-import './index.css';
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Activity, LayoutDashboard, Trophy, LogOut } from "lucide-react";
+import DashboardCards from "./components/DashboardCards";
+import Leaderboard from "./components/Leaderboard";
+import Recommendations from "./components/Recommendations";
+import "./index.css";
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [username, setUsername] = useState('sumit_coder');
-  const [syncedData, setSyncedData] = useState(null);
+function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [globalUsername, setGlobalUsername] = useState("");
+  const [activeTab, setActiveTab] = useState("dashboard"); // 'dashboard' or 'leaderboard'
 
-  // Updates the dashboard when SyncButton finishes
-  const handleDataFetched = (data) => {
-    if (data && data.platforms) {
-      setSyncedData(data.platforms);
-    }
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (globalUsername.trim()) setIsAuthenticated(true);
   };
 
+  const handleGlobalSync = () => {
+    console.log("Syncing all platforms for global username:", globalUsername);
+    // Call backend API /sync here
+  };
+
+  // --- LOGIN SCREEN ---
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white p-8 rounded-xl shadow-lg border border-slate-100 max-w-md w-full">
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <Activity className="text-blue-600" size={32} />
+            <h1 className="text-3xl font-bold text-slate-900">DevPulse</h1>
+          </div>
+          <p className="text-center text-slate-500 mb-8">Login or register to track your competitive programming journey.</p>
+          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+            <input 
+              type="text" 
+              placeholder="Enter Global Username" 
+              value={globalUsername}
+              onChange={(e) => setGlobalUsername(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+              required
+            />
+            <button type="submit" className="bg-blue-600 text-white rounded-lg px-4 py-3 font-semibold hover:bg-blue-700 transition shadow-md shadow-blue-500/30">
+              Continue to Dashboard
+            </button>
+          </form>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // --- MAIN APP SCREEN ---
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', fontFamily: 'system-ui, sans-serif' }}>
-      
-      {/* Sleek Navigation Bar */}
-      <nav style={{ backgroundColor: '#0f172a', padding: '16px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Activity color="#3b82f6" size={28} />
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold', letterSpacing: '1px' }}>DevPulse</h1>
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+      {/* Navbar */}
+      <nav className="bg-[#0f172a] text-white px-6 py-4 flex justify-between items-center shadow-lg">
+        <div className="flex items-center gap-2">
+          <Activity className="text-blue-400" />
+          <h1 className="text-xl font-bold tracking-wide">DevPulse</h1>
         </div>
         
-        <div style={{ display: 'flex', gap: '16px', backgroundColor: '#1e293b', padding: '6px', borderRadius: '12px' }}>
-          <TabButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutDashboard size={18} />} label="Dashboard" />
-          <TabButton active={activeTab === 'leaderboard'} onClick={() => setActiveTab('leaderboard')} icon={<Trophy size={18} />} label="Leaderboard" />
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setActiveTab("dashboard")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md transition ${activeTab === "dashboard" ? "bg-blue-600" : "hover:bg-slate-800"}`}
+          >
+            <LayoutDashboard size={18} /> Dashboard
+          </button>
+          <button 
+            onClick={() => setActiveTab("leaderboard")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md transition ${activeTab === "leaderboard" ? "bg-slate-700" : "hover:bg-slate-800"}`}
+          >
+            <Trophy size={18} /> Leaderboard
+          </button>
+          <button 
+            onClick={() => setIsAuthenticated(false)}
+            className="flex items-center gap-2 px-4 py-2 rounded-md hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition ml-2"
+          >
+            <LogOut size={18} />
+          </button>
         </div>
       </nav>
 
       {/* Main Content Area */}
-      <main style={{ maxWidth: '1000px', margin: '40px auto', padding: '0 20px' }}>
+      <main className="max-w-6xl mx-auto p-6 mt-4">
         <AnimatePresence mode="wait">
-          
-          {activeTab === 'dashboard' && (
-            <motion.div key="dashboard" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+          {activeTab === "dashboard" ? (
+            <motion.div key="dashboard" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
               
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px', flexWrap: 'wrap', gap: '20px' }}>
+              {/* Dashboard Header */}
+              <div className="flex justify-between items-end mb-2">
                 <div>
-                  <h2 style={{ fontSize: '2rem', color: '#0f172a', margin: '0 0 8px 0' }}>Developer Stats</h2>
-                  <p style={{ color: '#64748b', margin: 0 }}>Track your competitive programming progress.</p>
+                  <h2 className="text-3xl font-bold text-slate-800">Developer Stats</h2>
+                  <p className="text-slate-500 mt-1">Track your competitive programming progress, <span className="font-semibold">{globalUsername}</span>.</p>
                 </div>
-
-                {/* Input and Sync Button Container */}
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', backgroundColor: 'white', padding: '8px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                  <input 
-                    type="text" 
-                    value={username} 
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Enter username..."
-                    style={{ padding: '10px 16px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', fontSize: '1rem', width: '200px' }}
-                  />
-                  <SyncButton username={username} onSyncSuccess={handleDataFetched} />
-                </div>
+                
+                {/* Global Sync Button */}
+                <button 
+                  onClick={handleGlobalSync}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition shadow-md shadow-blue-500/30"
+                >
+                  <Activity size={18} /> Sync All Data
+                </button>
               </div>
 
-              {syncedData ? (
-                <DashboardCards platformData={syncedData} />
-              ) : (
-                <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8', backgroundColor: 'white', borderRadius: '16px', border: '2px dashed #cbd5e1' }}>
-                  <Activity size={48} style={{ opacity: 0.5, marginBottom: '16px' }} />
-                  <h3>No data loaded yet</h3>
-                  <p>Enter a username and click Sync to fetch live stats from the server.</p>
-                </div>
-              )}
-            </motion.div>
-          )}
+              {/* Stats Cards */}
+              <DashboardCards globalUsername={globalUsername} />
 
-          {activeTab === 'leaderboard' && (
-            <motion.div key="leaderboard" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
+              {/* New Recommendations Section */}
+              <Recommendations />
+
+            </motion.div>
+          ) : (
+            <motion.div key="leaderboard" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <Leaderboard />
             </motion.div>
           )}
-          
         </AnimatePresence>
       </main>
     </div>
   );
 }
 
-// Custom Animated Tab Button Helper
-function TabButton({ active, onClick, icon, label }) {
-  return (
-    <motion.button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '600', position: 'relative', backgroundColor: 'transparent', color: active ? 'white' : '#94a3b8', zIndex: 1 }} whileHover={{ color: 'white' }}>
-      {active && (
-        <motion.div layoutId="activeTab" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#3b82f6', borderRadius: '8px', zIndex: -1 }} transition={{ type: "spring", stiffness: 300, damping: 25 }} />
-      )}
-      {icon} {label}
-    </motion.button>
-  );
-}
+export default App;
