@@ -24,9 +24,12 @@ FetchContent_Declare(cpr GIT_REPOSITORY https://github.com/libcpr/cpr.git GIT_TA
 FetchContent_MakeAvailable(cpr)
 
 include_directories(include)
+
+# Grab all .cpp files in the src directory
 file(GLOB SOURCES "src/*.cpp")
 
-add_executable(devpulse ${SOURCES})
+# 5. Add executable - explicitly including main.cpp and the SQLite .c file!
+add_executable(devpulse main.cpp ${SOURCES} src/sqlite3.c)
 
-# 5. Link the downloaded libraries to your app
+# 6. Link the downloaded libraries to your app
 target_link_libraries(devpulse PRIVATE nlohmann_json::nlohmann_json cpr::cpr)

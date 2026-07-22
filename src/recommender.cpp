@@ -1,22 +1,27 @@
 #include "../include/recommender.hpp"
 #include "../include/user_model.hpp"
+#include "../include/api_service.hpp"
+#include "../include/database.hpp" // <-- DB Integration
 #include <iostream>
 #include <string>
 
 void generateRecommendations(const std::string& username) {
-    auto userIterator = globalUserDatabase.find(username);
-    if (userIterator == globalUserDatabase.end()) return;
-
-    const UserProfile& user = userIterator->second;
+    UserData user = getUserDataFromDB(username);
+    PlatformStats cfStats = fetchCodeforcesData(user.cf_handle);
+    PlatformStats lcStats = fetchLeetcodeData(user.lc_handle);
+    PlatformStats acStats = fetchAtcoderData(user.ac_handle);
+    
+    // Placeholder until you add target ratings to SQLite schema
+    int codeforcesTargetRating = 1600; 
     
     std::cout << "\n===========================================\n";
-    std::cout << "         SMART TRAINING RECOMMENDER        \n";
+    std::cout << "        SMART TRAINING RECOMMENDER         \n";
     std::cout << "===========================================\n";
 
     // 1. Target Goal Analysis
     std::cout << " [ TARGET ANALYSIS ]\n";
-    if (user.codeforcesTargetRating > 0) {
-        int cfDeficit = user.codeforcesTargetRating - user.codeforcesStats.rating;
+    if (codeforcesTargetRating > 0) {
+        int cfDeficit = codeforcesTargetRating - cfStats.rating;
         if (cfDeficit > 0) {
             std::cout << " - Codeforces: You need " << cfDeficit << " more points to reach your goal.\n";
             std::cout << "   Recommendation: Focus on Div2 B and C problems to build speed.\n";
@@ -29,9 +34,9 @@ void generateRecommendations(const std::string& username) {
 
     // 2. Topic Mastery Analysis
     std::cout << "\n [ TOPIC MASTERY ]\n";
-    int totalGraph = user.codeforcesStats.graphSolvedCount + user.leetcodeStats.graphSolvedCount + user.atcoderStats.graphSolvedCount;
-    int totalDP = user.codeforcesStats.dpSolvedCount + user.leetcodeStats.dpSolvedCount + user.atcoderStats.dpSolvedCount;
-    int totalSolved = user.codeforcesStats.totalSolvedCount + user.leetcodeStats.totalSolvedCount + user.atcoderStats.totalSolvedCount;
+    int totalGraph = cfStats.graphSolvedCount + lcStats.graphSolvedCount + acStats.graphSolvedCount;
+    int totalDP = cfStats.dpSolvedCount + lcStats.dpSolvedCount + acStats.dpSolvedCount;
+    int totalSolved = cfStats.totalSolvedCount + lcStats.totalSolvedCount + acStats.totalSolvedCount;
 
     if (totalSolved == 0) {
         std::cout << " - Not enough data. Go solve some problems!\n";

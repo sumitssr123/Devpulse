@@ -1,5 +1,7 @@
 #include "../include/ui.hpp"
 #include "../include/user_model.hpp"
+#include "../include/api_service.hpp"
+#include "../include/database.hpp" // <-- DB Integration
 #include <iostream>
 #include <string>
 #include <vector>
@@ -30,106 +32,78 @@ void drawProgressBar(int current, int target) {
 }
 
 void displayDashboard(const std::string& username) {
-    auto userIterator = globalUserDatabase.find(username);
-    if (userIterator == globalUserDatabase.end()) return;
-
-    const UserProfile& user = userIterator->second;
-    const PlatformStats& cfStats = user.codeforcesStats;
-    const PlatformStats& lcStats = user.leetcodeStats;
-    const PlatformStats& acStats = user.atcoderStats;
+    UserData user = getUserDataFromDB(username);
+    PlatformStats cfStats = fetchCodeforcesData(user.cf_handle);
+    PlatformStats lcStats = fetchLeetcodeData(user.lc_handle);
+    PlatformStats acStats = fetchAtcoderData(user.ac_handle);
 
     std::cout << "\n===========================================\n";
-    std::cout << "             DEVPULSE DASHBOARD            \n";
+    std::cout << "            DEVPULSE DASHBOARD             \n";
     std::cout << "===========================================\n";
-    std::cout << " User: " << user.username << " | Role: " << user.userRole << "\n";
+    std::cout << " User: " << username << " | Role: Competitor\n";
     std::cout << "-------------------------------------------\n";
     
-    std::cout << " [1] CODEFORCES (" << (user.codeforcesHandle.empty() ? "Not Set" : user.codeforcesHandle) << ")\n";
+    std::cout << " [1] CODEFORCES (" << (user.cf_handle.empty() ? "Not Set" : user.cf_handle) << ")\n";
     std::cout << "     Rating:         " << cfStats.rating << "\n";
     std::cout << "     Total Solved:   " << cfStats.totalSolvedCount << "\n";
     std::cout << "-------------------------------------------\n";
     
-    std::cout << " [2] LEETCODE (" << (user.leetcodeHandle.empty() ? "Not Set" : user.leetcodeHandle) << ")\n";
+    std::cout << " [2] LEETCODE (" << (user.lc_handle.empty() ? "Not Set" : user.lc_handle) << ")\n";
     std::cout << "     Contest Rating: " << lcStats.rating << "\n";
     std::cout << "     Total Solved:   " << lcStats.totalSolvedCount << "\n";
     std::cout << "-------------------------------------------\n";
     
-    std::cout << " [3] ATCODER (" << (user.atcoderHandle.empty() ? "Not Set" : user.atcoderHandle) << ")\n";
+    std::cout << " [3] ATCODER (" << (user.ac_handle.empty() ? "Not Set" : user.ac_handle) << ")\n";
     std::cout << "     Rating:         " << acStats.rating << "\n";
     std::cout << "     Total Solved:   " << acStats.totalSolvedCount << "\n";
     std::cout << "===========================================\n\n";
 }
 
 void displayHistory(const std::string& username) {
-    auto userIterator = globalUserDatabase.find(username);
-    if (userIterator == globalUserDatabase.end()) return;
-
-    const UserProfile& user = userIterator->second;
-    const std::vector<HistoricalSnapshot>& history = user.progressHistory;
-
     std::cout << "\n===========================================\n";
-    std::cout << "             PROGRESS HISTORY              \n";
+    std::cout << "            PROGRESS HISTORY               \n";
     std::cout << "===========================================\n";
-
-    if (history.empty()) {
-        std::cout << " No historical data available yet.\n";
-    } else {
-        for (size_t i = 0; i < history.size(); ++i) {
-            std::cout << " Snapshot [" << i + 1 << "] | Timestamp: " << history[i].timestamp << "\n";
-            std::cout << "   CF Rating: " << history[i].codeforcesRating 
-                      << " | LC Solved: " << history[i].leetcodeSolvedCount 
-                      << " | AC Rating: " << history[i].atcoderRating << "\n";
-            std::cout << "-------------------------------------------\n";
-        }
-    }
+    std::cout << " [INFO] History is now managed by SQLite.\n";
+    std::cout << " (Next Step: Write a SQL query in database.cpp to fetch your snapshots!)\n";
     std::cout << "===========================================\n\n";
 }
 
 void displayAnalytics(const std::string& username) {
-    auto userIterator = globalUserDatabase.find(username);
-    if (userIterator == globalUserDatabase.end()) return;
-
-    const UserProfile& user = userIterator->second;
+    UserData user = getUserDataFromDB(username);
+    PlatformStats cfStats = fetchCodeforcesData(user.cf_handle);
+    PlatformStats lcStats = fetchLeetcodeData(user.lc_handle);
+    PlatformStats acStats = fetchAtcoderData(user.ac_handle);
     
+    // Fetch REAL targets from the database instead of hardcoding
+    TargetGoals goals = getTargetGoals(username);
+    int codeforcesTargetRating = goals.cf_target;
+    int leetcodeTargetRating = goals.lc_target;
+    int atcoderTargetRating = goals.ac_target;
+
     std::cout << "\n===========================================\n";
-    std::cout << "           ADVANCED ANALYTICS              \n";
+    std::cout << "            ADVANCED ANALYTICS             \n";
     std::cout << "===========================================\n";
 
     // --- GOAL TRACKING ---
     std::cout << " --- GOAL TRACKING (RATING PROGRESS) ---\n";
     
-    std::cout << " Codeforces (" << user.codeforcesStats.rating << " / " << user.codeforcesTargetRating << ")";
-    drawProgressBar(user.codeforcesStats.rating, user.codeforcesTargetRating);
+    std::cout << " Codeforces (" << cfStats.rating << " / " << codeforcesTargetRating << ")";
+    drawProgressBar(cfStats.rating, codeforcesTargetRating);
     
-    std::cout << " LeetCode   (" << user.leetcodeStats.rating << " / " << user.leetcodeTargetRating << ")";
-    drawProgressBar(user.leetcodeStats.rating, user.leetcodeTargetRating);
+    std::cout << " LeetCode   (" << lcStats.rating << " / " << leetcodeTargetRating << ")";
+    drawProgressBar(lcStats.rating, leetcodeTargetRating);
     
-    std::cout << " AtCoder    (" << user.atcoderStats.rating << " / " << user.atcoderTargetRating << ")";
-    drawProgressBar(user.atcoderStats.rating, user.atcoderTargetRating);
+    std::cout << " AtCoder    (" << acStats.rating << " / " << atcoderTargetRating << ")";
+    drawProgressBar(acStats.rating, atcoderTargetRating);
     std::cout << "\n";
 
     // --- TOPIC MASTERY ---
-    int totalGraph = user.codeforcesStats.graphSolvedCount + user.leetcodeStats.graphSolvedCount + user.atcoderStats.graphSolvedCount;
-    int totalDP = user.codeforcesStats.dpSolvedCount + user.leetcodeStats.dpSolvedCount + user.atcoderStats.dpSolvedCount;
+    int totalGraph = cfStats.graphSolvedCount + lcStats.graphSolvedCount + acStats.graphSolvedCount;
+    int totalDP = cfStats.dpSolvedCount + lcStats.dpSolvedCount + acStats.dpSolvedCount;
 
     std::cout << " --- TOPIC MASTERY ---\n";
     std::cout << " Graph Problems Solved: " << totalGraph << "\n";
     std::cout << " DP Problems Solved:    " << totalDP << "\n\n";
-
-    // --- RATING GROWTH ---
-    std::cout << " --- RATING GROWTH (Since First Login) ---\n";
-    if (user.progressHistory.size() > 1) {
-        const auto& firstSnapshot = user.progressHistory.front();
-        const auto& latestSnapshot = user.progressHistory.back();
-
-        int cfDelta = latestSnapshot.codeforcesRating - firstSnapshot.codeforcesRating;
-        int acDelta = latestSnapshot.atcoderRating - firstSnapshot.atcoderRating;
-
-        std::cout << " Codeforces: " << (cfDelta >= 0 ? "+" : "") << cfDelta << " points\n";
-        std::cout << " AtCoder:    " << (acDelta >= 0 ? "+" : "") << acDelta << " points\n";
-    } else {
-        std::cout << " Not enough history to calculate growth yet.\n";
-    }
     std::cout << "===========================================\n\n";
 }
 
@@ -137,74 +111,49 @@ void displayLeaderboard() {
     std::cout << "\n===========================================\n";
     std::cout << "         DEVPULSE LEADERBOARD              \n";
     std::cout << "===========================================\n";
-
-    if (globalUserDatabase.empty()) {
-        std::cout << " No users registered in memory.\n";
-        std::cout << "===========================================\n\n";
-        return;
-    }
-
-    std::vector<UserProfile> rankList;
-    for (const auto& pair : globalUserDatabase) {
-        rankList.push_back(pair.second);
-    }
-
-    // Sort by combined total solved count
-    std::sort(rankList.begin(), rankList.end(), [](const UserProfile& a, const UserProfile& b) {
-        int totalA = a.codeforcesStats.totalSolvedCount + a.leetcodeStats.totalSolvedCount;
-        int totalB = b.codeforcesStats.totalSolvedCount + b.leetcodeStats.totalSolvedCount;
-        return totalA > totalB;
-    });
-
-    int rank = 1;
-    for (const auto& user : rankList) {
-        int totalSolved = user.codeforcesStats.totalSolvedCount + user.leetcodeStats.totalSolvedCount;
-        std::cout << " " << rank++ << ". " << user.username 
-                  << " | Total Solved: " << totalSolved 
-                  << " | CF Rating: " << user.codeforcesStats.rating << "\n";
-    }
+    std::cout << " [INFO] Leaderboard now requires a SQL JOIN query to rank all users.\n";
     std::cout << "===========================================\n\n";
 }
 
 void configureHandles(const std::string& username) {
-    auto userIterator = globalUserDatabase.find(username);
-    if (userIterator == globalUserDatabase.end()) return;
-    
-    UserProfile& user = userIterator->second;
+    std::string cf_input, lc_input, ac_input;
     
     std::cout << "\n--- PROFILE SETTINGS ---\n";
-    std::cout << "Enter Codeforces handle (current: " << (user.codeforcesHandle.empty() ? "None" : user.codeforcesHandle) << "): ";
-    std::cin >> user.codeforcesHandle;
-    std::cout << "Enter LeetCode handle (current: " << (user.leetcodeHandle.empty() ? "None" : user.leetcodeHandle) << "): ";
-    std::cin >> user.leetcodeHandle;
-    std::cout << "Enter AtCoder handle (current: " << (user.atcoderHandle.empty() ? "None" : user.atcoderHandle) << "): ";
-    std::cin >> user.atcoderHandle;
+    std::cout << "Enter Codeforces handle: ";
+    std::cin >> cf_input;
+    std::cout << "Enter LeetCode handle: ";
+    std::cin >> lc_input;
+    std::cout << "Enter AtCoder handle: ";
+    std::cin >> ac_input;
     
-    std::cout << "[Settings] Handles updated successfully!\n";
+    if (updateHandlesInDB(username, cf_input, lc_input, ac_input)) {
+        std::cout << "[Settings] Handles safely updated in Database!\n";
+    }
 }
 
 void setTargetGoals(const std::string& username) {
-    auto userIterator = globalUserDatabase.find(username);
-    if (userIterator == globalUserDatabase.end()) return;
-    
-    UserProfile& user = userIterator->second;
-    
+    int cf, lc, ac;
     std::cout << "\n--- SET TARGET GOALS ---\n";
-    std::cout << "Set Codeforces target rating (current: " << user.codeforcesTargetRating << "): ";
-    std::cin >> user.codeforcesTargetRating;
-    std::cout << "Set LeetCode target rating (current: " << user.leetcodeTargetRating << "): ";
-    std::cin >> user.leetcodeTargetRating;
-    std::cout << "Set AtCoder target rating (current: " << user.atcoderTargetRating << "): ";
-    std::cin >> user.atcoderTargetRating;
-    
-    std::cout << "[Goals] Targets saved! Check your Analytics dashboard to see your progress.\n";
+    std::cout << "Codeforces Target Rating: ";
+    std::cin >> cf;
+    std::cout << "LeetCode Target Rating: ";
+    std::cin >> lc;
+    std::cout << "AtCoder Target Rating: ";
+    std::cin >> ac;
+
+    if (updateTargetGoals(username, cf, lc, ac)) {
+        std::cout << "[SUCCESS] Target goals saved to database successfully!\n";
+    } else {
+        std::cout << "[ERROR] Failed to update goals in the database.\n";
+    }
 }
 
 void exportProfileReport(const std::string& username) {
-    auto userIterator = globalUserDatabase.find(username);
-    if (userIterator == globalUserDatabase.end()) return;
-
-    const UserProfile& user = userIterator->second;
+    UserData user = getUserDataFromDB(username);
+    PlatformStats cfStats = fetchCodeforcesData(user.cf_handle);
+    PlatformStats lcStats = fetchLeetcodeData(user.lc_handle);
+    PlatformStats acStats = fetchAtcoderData(user.ac_handle);
+    
     std::string filename = username + "_report.md";
     std::ofstream outFile(filename);
 
@@ -213,24 +162,17 @@ void exportProfileReport(const std::string& username) {
         return;
     }
 
-    int totalSolved = user.codeforcesStats.totalSolvedCount + 
-                      user.leetcodeStats.totalSolvedCount + 
-                      user.atcoderStats.totalSolvedCount;
+    int totalSolved = cfStats.totalSolvedCount + lcStats.totalSolvedCount + acStats.totalSolvedCount;
 
     outFile << "# DevPulse Competitor Report\n\n";
-    outFile << "**Username:** " << user.username << "\n";
+    outFile << "**Username:** " << username << "\n";
     outFile << "**Total Problems Solved:** " << totalSolved << "\n\n";
     
     outFile << "## Current Standings\n";
-    outFile << "- **Codeforces:** " << user.codeforcesStats.rating << " rating\n";
-    outFile << "- **LeetCode:** " << user.leetcodeStats.rating << " rating\n";
-    outFile << "- **AtCoder:** " << user.atcoderStats.rating << " rating\n\n";
+    outFile << "- **Codeforces:** " << cfStats.rating << " rating\n";
+    outFile << "- **LeetCode:** " << lcStats.rating << " rating\n";
+    outFile << "- **AtCoder:** " << acStats.rating << " rating\n\n";
     
-    outFile << "## Goals\n";
-    outFile << "- Codeforces Target: " << user.codeforcesTargetRating << "\n";
-    outFile << "- LeetCode Target: " << user.leetcodeTargetRating << "\n";
-    outFile << "- AtCoder Target: " << user.atcoderTargetRating << "\n\n";
-
     outFile << "> Generated automatically by DevPulse CLI.\n";
 
     outFile.close();
@@ -246,8 +188,8 @@ void showMenu() {
     std::cout << "5. Refresh All Platform Data\n";
     std::cout << "6. Profile Settings (Set Handles)\n";
     std::cout << "7. Set Target Goals\n"; 
-    std::cout << "8. Get Smart Training Recommendations\n"; // NEW
-    std::cout << "9. Export Profile Report (Markdown)\n"; // Shifted to 9
-    std::cout << "10. Exit\n"; // Shifted to 10
+    std::cout << "8. Get Smart Training Recommendations\n";
+    std::cout << "9. Export Profile Report (Markdown)\n";
+    std::cout << "10. Exit\n";
     std::cout << "Select an option: ";
 }
