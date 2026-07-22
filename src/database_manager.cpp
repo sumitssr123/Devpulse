@@ -11,7 +11,6 @@ DatabaseManager::~DatabaseManager() {
 }
 
 bool DatabaseManager::initialize() {
-    // 1. Open the database (creates the file devpulse.db if it doesn't exist)
     int exitCode = sqlite3_open(db_name.c_str(), &db);
     if (exitCode != SQLITE_OK) {
         std::cerr << "[DB ERROR] Error opening database: " << sqlite3_errmsg(db) << "\n";
@@ -19,8 +18,7 @@ bool DatabaseManager::initialize() {
     }
     std::cout << "[DB] Successfully connected to SQLite database.\n";
 
-    // 2. Define the SQL Schema for USERS and HISTORY_SNAPSHOTS
-    // ADDED: cf_target, lc_target, ac_target columns for persistent goals
+    // UPDATED: Fixed HISTORY_SNAPSHOTS schema to match the data saveProgressSnapshot is sending
     std::string sql = R"(
         CREATE TABLE IF NOT EXISTS USERS (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,16 +34,18 @@ bool DatabaseManager::initialize() {
 
         CREATE TABLE IF NOT EXISTS HISTORY_SNAPSHOTS (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            timestamp INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
             cf_rating INTEGER DEFAULT 0,
+            cf_solved INTEGER DEFAULT 0,
+            lc_rating INTEGER DEFAULT 0,
             lc_solved INTEGER DEFAULT 0,
             ac_rating INTEGER DEFAULT 0,
-            FOREIGN KEY(user_id) REFERENCES USERS(id)
+            ac_solved INTEGER DEFAULT 0,
+            FOREIGN KEY(username) REFERENCES USERS(username)
         );
     )";
 
-    // 3. Execute the SQL command
     char* errorMessage = nullptr;
     exitCode = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errorMessage);
     

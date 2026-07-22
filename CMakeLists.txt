@@ -33,3 +33,5 @@ add_executable(devpulse main.cpp ${SOURCES} src/sqlite3.c)
 
 # 6. Link the downloaded libraries to your app
 target_link_libraries(devpulse PRIVATE nlohmann_json::nlohmann_json cpr::cpr)
+# Add ws2_32 to the end of your existing link libraries
+target_link_libraries(devpulse PRIVATE ws2_32)

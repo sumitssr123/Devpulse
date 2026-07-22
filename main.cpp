@@ -1,19 +1,23 @@
 #include <iostream>
 #include <string>
-// #include <unordered_map> <-- [CLEANUP] Removed!
+#include <vector>
+#include "../include/httplib.h" 
+#include <nlohmann/json.hpp> 
+
+// Your existing project includes
 #include "user_model.hpp"
 #include "auth.hpp"
 #include "cache.hpp"
-#include "ui.hpp"
-// #include "storage.hpp"  <-- We are removing this! No more flat-files.
 #include "recommender.hpp"
 #include "api_service.hpp"
-#include "database_manager.hpp" // <-- Include your new SQLite manager
-#include "../include/database.hpp" // <-- Your new DB functions
+#include "database_manager.hpp" 
+#include "../include/database.hpp" 
+
+using json = nlohmann::json;
 
 int main() {
     std::cout << "===========================================\n";
-    std::cout << "          Welcome to DevPulse CLI          \n";
+    std::cout << "        DevPulse REST API Server           \n";
     std::cout << "===========================================\n\n";
 
     // 1. Initialize SQLite Database
@@ -25,125 +29,118 @@ int main() {
     }
     std::cout << "[SYSTEM] Database ready.\n\n";
 
-    std::string activeUsername;
-    std::string currentPassword;
-    int authChoice;
+    httplib::Server svr;
 
-    while (true) {
-        std::cout << "1. Login\n";
-        std::cout << "2. Register\n";
-        std::cout << "3. Exit System\n";
-        std::cout << "Select option: ";
-        std::cin >> authChoice;
+    // 2. GLOBAL CORS CONFIGURATION (Crucial for React!)
+    svr.set_post_routing_handler([](const auto& req, auto& res) {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    });
+    
+    // Handle React's automatic pre-flight OPTIONS requests
+    svr.Options(".*", [](const auto& req, auto& res) {
+        res.status = 200;
+    });
 
-        if (authChoice == 1) {
-            std::cout << "Username: ";
-            std::cin >> activeUsername;
-            std::cout << "Password: ";
-            std::cin >> currentPassword;
-            
-            // Login now strictly relies on SQLite (auth.cpp)
-            if (loginUser(activeUsername, currentPassword)) {
-                // [CLEANUP] globalUserDatabase code deleted from here!
-                break; 
+    // 3. API ROUTE 1: Get User Dashboard
+    svr.Get(R"(/api/user/(.*))", [&](const httplib::Request& req, httplib::Response& res) {
+        std::string req_username = req.matches[1];
+        UserData userStats = getUserDataFromDB(req_username);
+        
+        json json_response = {
+            {"username", req_username},
+            {"cf_handle", userStats.cf_handle},
+            {"lc_handle", userStats.lc_handle},
+            {"ac_handle", userStats.ac_handle}
+        };
+        res.set_content(json_response.dump(), "application/json");
+    });
+
+    // 4. API ROUTE 2: Live SYNC Route (Wired to Codeforces, LeetCode, and AtCoder)
+    svr.Post("/api/sync", [&](const httplib::Request& req, httplib::Response& res) {
+        try {
+            // Parse the incoming JSON payload from React (e.g., {"username": "sumit_coder"})
+            json req_body = json::parse(req.body);
+            std::string username = req_body.value("username", "");
+
+            if (username.empty()) {
+                res.status = 400;
+                json error_res = {{"status", "error"}, {"message", "Username is required"}};
+                res.set_content(error_res.dump(), "application/json");
+                return;
             }
-        } 
-        else if (authChoice == 2) {
-            std::cout << "Choose a Username: ";
-            std::cin >> activeUsername;
-            std::cout << "Choose a Password: ";
-            std::cin >> currentPassword;
-            
-            // Register now strictly relies on SQLite (auth.cpp)
-            if (registerUser(activeUsername, currentPassword)) {
-                // [CLEANUP] globalUserDatabase code deleted from here!
-                break;
-            }
-        } 
-        else if (authChoice == 3) {
-            std::cout << "Shutting down DevPulse...\n";
-            return 0;
-        } 
-        else {
-            std::cout << "Invalid input. Please try again.\n";
+
+            std::cout << "\n[API] Sync requested for user: " << username << "\n";
+
+            // Step A: Retrieve saved platform handles from SQLite
+            UserData userStats = getUserDataFromDB(username);
+
+            // Use configured handles or fall back to the username itself
+            std::string cf_handle = !userStats.cf_handle.empty() ? userStats.cf_handle : username;
+            std::string lc_handle = !userStats.lc_handle.empty() ? userStats.lc_handle : username;
+            std::string ac_handle = !userStats.ac_handle.empty() ? userStats.ac_handle : username;
+
+            // Step B: Fetch live/fallback stats across all 3 platforms
+            PlatformStats cf_stats = fetchCodeforcesData(cf_handle);
+            PlatformStats lc_stats = fetchLeetcodeData(lc_handle);
+            PlatformStats ac_stats = fetchAtcoderData(ac_handle);
+
+            // Step C: Construct response object for React
+            json json_response = {
+                {"status", "success"},
+                {"username", username},
+                {"platforms", {
+                    {"codeforces", {
+                        {"handle", cf_handle},
+                        {"rating", cf_stats.rating},
+                        {"total_solved", cf_stats.totalSolvedCount},
+                        {"graph_solved", cf_stats.graphSolvedCount},
+                        {"dp_solved", cf_stats.dpSolvedCount}
+                    }},
+                    {"leetcode", {
+                        {"handle", lc_handle},
+                        {"rating", lc_stats.rating},
+                        {"total_solved", lc_stats.totalSolvedCount},
+                        {"graph_solved", lc_stats.graphSolvedCount},
+                        {"dp_solved", lc_stats.dpSolvedCount}
+                    }},
+                    {"atcoder", {
+                        {"handle", ac_handle},
+                        {"rating", ac_stats.rating},
+                        {"total_solved", ac_stats.totalSolvedCount},
+                        {"graph_solved", ac_stats.graphSolvedCount},
+                        {"dp_solved", ac_stats.dpSolvedCount}
+                    }}
+                }}
+            };
+
+            std::cout << "[API] Sync completed successfully for " << username << "!\n\n";
+            res.set_content(json_response.dump(), "application/json");
+
+        } catch (const std::exception& e) {
+            std::cerr << "[API EXCEPTION] Sync failed: " << e.what() << "\n";
+            json error_res = {{"status", "error"}, {"message", e.what()}};
+            res.status = 400;
+            res.set_content(error_res.dump(), "application/json");
         }
-    }
+    });
 
-    std::cout << "\nPreparing environment for " << activeUsername << "...\n";
-    fetchUserStats(activeUsername);
+    // 5. API ROUTE 3: Leaderboard
+    svr.Get("/api/leaderboard", [&](const httplib::Request& req, httplib::Response& res) {
+        json json_response = json::array();
 
-    int userChoice; 
-    while (true) {
-        showMenu();
-        std::cin >> userChoice;
+        // Fallback leaderboard data until getLeaderboardFromDB() is integrated
+        json_response.push_back({{"rank", 1}, {"username", "DevMaster"}, {"total_solved", 540}, {"total_rating", 3400}});
+        json_response.push_back({{"rank", 2}, {"username", "AlgoKing"}, {"total_solved", 412}, {"total_rating", 2900}});
 
-        if (userChoice == 1) {
-            // [NEW] DASHBOARD INTEGRATION
-            UserData userStats = getUserDataFromDB(activeUsername);
-            
-            std::cout << "===========================================\n";
-            std::cout << "             DEVPULSE DASHBOARD            \n";
-            std::cout << "===========================================\n";
-            std::cout << " User: " << activeUsername << " \n";
-            std::cout << "-------------------------------------------\n";
-            std::cout << " [1] CODEFORCES (" << userStats.cf_handle << ")\n";
-            std::cout << " [2] LEETCODE (" << userStats.lc_handle << ")\n";
-            std::cout << " [3] ATCODER (" << userStats.ac_handle << ")\n";
-            std::cout << "===========================================\n";
-            
-        } else if (userChoice == 2) {
-            displayHistory(activeUsername);
-        } else if (userChoice == 3) {
-            displayAnalytics(activeUsername);
-        } else if (userChoice == 4) {
-            displayLeaderboard(); 
-        }  else if (userChoice == 5) {
-            // 1. Get handles from the database first
-            UserData userStats = getUserDataFromDB(activeUsername);
+        res.set_content(json_response.dump(), "application/json");
+    });
 
-            // 2. Fetch live data using those handles
-            PlatformStats cfStats = fetchCodeforcesData(userStats.cf_handle);
-            PlatformStats lcStats = fetchLeetcodeData(userStats.lc_handle);
-            PlatformStats acStats = fetchAtcoderData(userStats.ac_handle);
-            
-            // 3. Save the REAL live data to the SQLite database
-            saveProgressSnapshot(
-                activeUsername, 
-                cfStats.rating, cfStats.totalSolvedCount, 
-                lcStats.rating, lcStats.totalSolvedCount, 
-                acStats.rating, acStats.totalSolvedCount
-            );
-            
-            std::cout << "[Cache Update] Fresh stats saved to Database. History snapshot recorded.\n";
-
-        } else if (userChoice == 6) {
-            // [NEW] PROFILE SETTINGS INTEGRATION
-            std::string cf_input, lc_input, ac_input;
-            std::cout << "Enter Codeforces handle: ";
-            std::cin >> cf_input;
-            std::cout << "Enter LeetCode handle: ";
-            std::cin >> lc_input;
-            std::cout << "Enter AtCoder handle: ";
-            std::cin >> ac_input;
-
-            if (updateHandlesInDB(activeUsername, cf_input, lc_input, ac_input)) {
-                std::cout << "[Settings] Handles securely saved to SQLite Database!\n";
-            }
-
-        } else if (userChoice == 7) {
-            setTargetGoals(activeUsername);
-        } else if (userChoice == 8) {
-            generateRecommendations(activeUsername);
-        } else if (userChoice == 9) {
-            exportProfileReport(activeUsername);
-        } else if (userChoice == 10) {
-            // [CLEANUP] saveUserDataToFile() removed completely.
-            std::cout << "Session saved securely to SQLite. Exiting DevPulse. Goodbye!\n";
-            break;
-        } else {
-            std::cout << "Invalid option. Please try again.\n";
-        }
-    }
+    // 6. Start listening
+    std::cout << "[API] Starting DevPulse server on http://localhost:8080\n";
+    std::cout << "[API] Press Ctrl+C to stop.\n";
+    svr.listen("localhost", 8080);
 
     return 0;
 }

@@ -1,14 +1,14 @@
 #include "../include/ui.hpp"
 #include "../include/user_model.hpp"
 #include "../include/api_service.hpp"
-#include "../include/database.hpp" // <-- DB Integration
+#include "../include/database.hpp" 
 #include <iostream>
 #include <string>
 #include <vector>
 #include <algorithm>
 #include <fstream>
+#include <iomanip> // <-- Added for std::setw to format the leaderboard table
 
-// Helper function to draw an ASCII progress bar
 void drawProgressBar(int current, int target) {
     if (target <= 0) {
         std::cout << " [ Target not set ]\n";
@@ -37,6 +37,10 @@ void displayDashboard(const std::string& username) {
     PlatformStats lcStats = fetchLeetcodeData(user.lc_handle);
     PlatformStats acStats = fetchAtcoderData(user.ac_handle);
 
+    saveProgressSnapshot(username, cfStats.rating, cfStats.totalSolvedCount, 
+                         lcStats.rating, lcStats.totalSolvedCount, 
+                         acStats.rating, acStats.totalSolvedCount);
+
     std::cout << "\n===========================================\n";
     std::cout << "            DEVPULSE DASHBOARD             \n";
     std::cout << "===========================================\n";
@@ -63,8 +67,21 @@ void displayHistory(const std::string& username) {
     std::cout << "\n===========================================\n";
     std::cout << "            PROGRESS HISTORY               \n";
     std::cout << "===========================================\n";
-    std::cout << " [INFO] History is now managed by SQLite.\n";
-    std::cout << " (Next Step: Write a SQL query in database.cpp to fetch your snapshots!)\n";
+    
+    std::vector<HistorySnapshot> history = getHistorySnapshots(username);
+    
+    if (history.empty()) {
+        std::cout << " [INFO] No history found yet.\n";
+        std::cout << " View your Dashboard (Option 1) to generate your first snapshot!\n";
+    } else {
+        for (const auto& snap : history) {
+            std::cout << " [" << snap.timestamp << "]\n";
+            std::cout << "   CF: " << snap.cf_rating << " rating | " << snap.cf_solved << " solved\n";
+            std::cout << "   LC: " << snap.lc_rating << " rating | " << snap.lc_solved << " solved\n";
+            std::cout << "   AC: " << snap.ac_rating << " rating | " << snap.ac_solved << " solved\n";
+            std::cout << " ------------------------------------------\n";
+        }
+    }
     std::cout << "===========================================\n\n";
 }
 
@@ -74,7 +91,6 @@ void displayAnalytics(const std::string& username) {
     PlatformStats lcStats = fetchLeetcodeData(user.lc_handle);
     PlatformStats acStats = fetchAtcoderData(user.ac_handle);
     
-    // Fetch REAL targets from the database instead of hardcoding
     TargetGoals goals = getTargetGoals(username);
     int codeforcesTargetRating = goals.cf_target;
     int leetcodeTargetRating = goals.lc_target;
@@ -84,7 +100,6 @@ void displayAnalytics(const std::string& username) {
     std::cout << "            ADVANCED ANALYTICS             \n";
     std::cout << "===========================================\n";
 
-    // --- GOAL TRACKING ---
     std::cout << " --- GOAL TRACKING (RATING PROGRESS) ---\n";
     
     std::cout << " Codeforces (" << cfStats.rating << " / " << codeforcesTargetRating << ")";
@@ -97,7 +112,6 @@ void displayAnalytics(const std::string& username) {
     drawProgressBar(acStats.rating, atcoderTargetRating);
     std::cout << "\n";
 
-    // --- TOPIC MASTERY ---
     int totalGraph = cfStats.graphSolvedCount + lcStats.graphSolvedCount + acStats.graphSolvedCount;
     int totalDP = cfStats.dpSolvedCount + lcStats.dpSolvedCount + acStats.dpSolvedCount;
 
@@ -107,12 +121,33 @@ void displayAnalytics(const std::string& username) {
     std::cout << "===========================================\n\n";
 }
 
+// --- UPDATED LEADERBOARD UI ---
 void displayLeaderboard() {
-    std::cout << "\n===========================================\n";
-    std::cout << "         DEVPULSE LEADERBOARD              \n";
-    std::cout << "===========================================\n";
-    std::cout << " [INFO] Leaderboard now requires a SQL JOIN query to rank all users.\n";
-    std::cout << "===========================================\n\n";
+    std::cout << "\n======================================================\n";
+    std::cout << "                DEVPULSE LEADERBOARD                  \n";
+    std::cout << "======================================================\n";
+    
+    std::vector<LeaderboardEntry> board = getLeaderboard();
+    
+    if (board.empty()) {
+        std::cout << " [INFO] No data available for leaderboard yet.\n";
+        std::cout << " (Users need to view their Dashboard to log data!)\n";
+    } else {
+        std::cout << std::left << " " << std::setw(5) << "Rank" 
+                  << "| " << std::setw(15) << "Username" 
+                  << "| " << std::setw(15) << "Total Solved" 
+                  << "| " << "Total Rating\n";
+        std::cout << " -----------------------------------------------------\n";
+        
+        int rank = 1;
+        for (const auto& entry : board) {
+            std::cout << " #" << std::left << std::setw(4) << rank++ 
+                      << "| " << std::setw(15) << entry.username 
+                      << "| " << std::setw(15) << entry.total_solved 
+                      << "| " << entry.total_rating << "\n";
+        }
+    }
+    std::cout << "======================================================\n\n";
 }
 
 void configureHandles(const std::string& username) {
