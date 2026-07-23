@@ -16,7 +16,6 @@ export default function Recommendations({ analysisMode, statsData }) {
   const generateAIAdvice = async () => {
     setIsLoading(true);
     try {
-      // Safely parse recent problems (assuming backend sends them as an array of strings)
       const cfRecent = statsData?.codeforces?.recent_problems?.join(", ") || "No recent data";
       const lcRecent = statsData?.leetcode?.recent_problems?.join(", ") || "No recent data";
       const acRecent = statsData?.atcoder?.recent_problems?.join(", ") || "No recent data";
@@ -45,7 +44,7 @@ export default function Recommendations({ analysisMode, statsData }) {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.9, // Higher temp for unique answers
+            temperature: 0.9, 
             maxOutputTokens: 300,
           }
         })
@@ -68,40 +67,40 @@ export default function Recommendations({ analysisMode, statsData }) {
       key={analysisMode} 
       initial={{ opacity: 0, y: 20 }} 
       animate={{ opacity: 1, y: 0 }} 
-      className="mt-6 bg-[#0f172a] p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-700"
+      className="mt-6 bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-200"
     >
-      <div className="flex items-center justify-between mb-8 border-b border-slate-700 pb-4">
+      <div className="flex items-center justify-between mb-8 border-b border-slate-100 pb-4">
         <div className="flex items-center gap-4">
-          <div className="bg-indigo-500/20 p-3 rounded-2xl text-indigo-400">
+          <div className="bg-blue-50 p-3 rounded-2xl text-blue-600">
             <Sparkles size={28} />
           </div>
-          <h2 className="text-2xl font-black text-slate-100">AI Deep Analysis</h2>
+          <h2 className="text-2xl font-black text-slate-800">AI Deep Analysis</h2>
         </div>
         <button 
           onClick={generateAIAdvice} 
           disabled={isLoading}
-          className="text-sm font-bold text-white bg-indigo-600 px-5 py-2.5 rounded-xl hover:bg-indigo-500 flex items-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/20"
+          className="text-sm font-bold text-white bg-blue-600 px-5 py-2.5 rounded-xl hover:bg-blue-700 flex items-center gap-2 transition-all disabled:opacity-50 shadow-md shadow-blue-500/20"
         >
           {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Database size={18} />}
           Fetch Deep Strategy
         </button>
       </div>
 
-      <div className="p-6 sm:p-8 bg-slate-800/50 rounded-2xl border border-slate-700 relative overflow-hidden">
+      <div className="p-6 sm:p-8 bg-slate-50 rounded-2xl border border-slate-200 relative overflow-hidden">
         {/* Left highlight bar */}
-        <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
+        <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-500"></div>
         
-        <div className="flex items-center gap-3 mb-4 text-indigo-300 font-bold text-lg uppercase tracking-wide">
+        <div className="flex items-center gap-3 mb-4 text-blue-700 font-bold text-lg uppercase tracking-wide">
           <Target size={22} /> Strategic Focus
         </div>
         
         {isLoading ? (
-          <div className="flex items-center gap-3 text-slate-400 font-medium animate-pulse mt-6">
-            <Loader2 size={24} className="animate-spin text-indigo-400" /> 
+          <div className="flex items-center gap-3 text-slate-500 font-medium animate-pulse mt-6">
+            <Loader2 size={24} className="animate-spin text-blue-500" /> 
             <span>Extracting memory patterns from recent 30 problem submissions...</span>
           </div>
         ) : (
-          <p className="text-[15px] sm:text-[16px] text-slate-300 font-medium leading-relaxed whitespace-pre-wrap">
+          <p className="text-[15px] sm:text-[16px] text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">
             {aiAdvice || "Sync data to generate personalized algorithmic recommendations."}
           </p>
         )}
