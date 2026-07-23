@@ -120,7 +120,8 @@ int main() {
                 res.status = 500;
                 res.set_content(R"({"error": "Failed to update database"})", "application/json");
             }
-        } catch (const std::exception& e) {
+        // WARNING FIX: Removed the unused 'e' variable below
+        } catch (const std::exception&) { 
             res.status = 400;
             res.set_content(R"({"error": "Invalid JSON data"})", "application/json");
         }

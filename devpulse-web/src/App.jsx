@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, LayoutDashboard, Trophy, LogOut } from "lucide-react";
+import { Activity, Trophy, LogOut, Code, Terminal, Database, Layers } from "lucide-react";
 import DashboardCards from "./components/DashboardCards";
 import Leaderboard from "./components/Leaderboard";
 import "./index.css";
@@ -9,9 +9,9 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [globalUsername, setGlobalUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [authMode, setAuthMode] = useState("login"); // 'login', 'register', 'forgot'
+  const [authMode, setAuthMode] = useState("login");
   const [authMessage, setAuthMessage] = useState("");
-  const [activeTab, setActiveTab] = useState("dashboard"); // 'dashboard' or 'leaderboard'
+  const [activeTab, setActiveTab] = useState("combined"); // 'combined', 'cf', 'lc', 'ac', 'leaderboard'
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -43,25 +43,27 @@ function App() {
   // --- AUTH SCREEN ---
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white p-8 rounded-xl shadow-lg border border-slate-100 max-w-md w-full">
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <Activity className="text-blue-600" size={32} />
-            <h1 className="text-3xl font-bold text-slate-900">DevPulse</h1>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white p-10 rounded-2xl shadow-2xl max-w-md w-full">
+          <div className="flex flex-col items-center justify-center gap-3 mb-8">
+            <div className="bg-blue-600 p-3 rounded-xl">
+              <Activity className="text-white" size={32} />
+            </div>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight">DevPulse</h1>
+            <p className="text-center text-slate-500 font-medium">
+              {authMode === "login" ? "Welcome back, developer." : authMode === "register" ? "Initialize your tracking environment." : "Reset your system access."}
+            </p>
           </div>
-          <p className="text-center text-slate-500 mb-4">
-            {authMode === "login" ? "Login to track your competitive journey." : authMode === "register" ? "Create an account to start tracking." : "Reset your password."}
-          </p>
           
-          {authMessage && <p className="text-center text-sm font-bold text-red-500 mb-4">{authMessage}</p>}
+          {authMessage && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm font-bold text-center mb-6">{authMessage}</div>}
 
-          <form onSubmit={handleAuth} className="flex flex-col gap-4">
+          <form onSubmit={handleAuth} className="flex flex-col gap-5">
             <input 
               type="text" 
               placeholder="Global Username" 
               value={globalUsername}
               onChange={(e) => setGlobalUsername(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+              className="bg-slate-50 border-2 border-slate-100 rounded-xl px-5 py-4 outline-none focus:border-blue-500 focus:bg-white transition text-lg"
               required
             />
             <input 
@@ -69,22 +71,22 @@ function App() {
               placeholder={authMode === "forgot" ? "New Password" : "Password"} 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+              className="bg-slate-50 border-2 border-slate-100 rounded-xl px-5 py-4 outline-none focus:border-blue-500 focus:bg-white transition text-lg"
               required
             />
-            <button type="submit" className="bg-blue-600 text-white rounded-lg px-4 py-3 font-semibold hover:bg-blue-700 transition shadow-md shadow-blue-500/30">
+            <button type="submit" className="bg-blue-600 text-white rounded-xl px-5 py-4 font-bold text-lg hover:bg-blue-700 transition shadow-lg shadow-blue-500/30 mt-2">
               {authMode === "login" ? "Login to Dashboard" : authMode === "register" ? "Register Account" : "Update Password"}
             </button>
           </form>
 
-          <div className="flex justify-between items-center mt-6 text-sm text-slate-500">
+          <div className="flex flex-col items-center mt-8 space-y-3 text-sm font-semibold text-slate-500">
             {authMode === "login" ? (
               <>
                 <button onClick={() => setAuthMode("forgot")} className="hover:text-blue-600 transition">Forgot Password?</button>
-                <button onClick={() => setAuthMode("register")} className="hover:text-blue-600 font-semibold transition">Register →</button>
+                <button onClick={() => setAuthMode("register")} className="text-slate-800 hover:text-blue-600 transition">Don't have an account? Register →</button>
               </>
             ) : (
-              <button onClick={() => setAuthMode("login")} className="hover:text-blue-600 transition mx-auto">← Back to Login</button>
+              <button onClick={() => setAuthMode("login")} className="hover:text-blue-600 transition">← Back to Login</button>
             )}
           </div>
         </motion.div>
@@ -92,49 +94,71 @@ function App() {
     );
   }
 
-  // --- MAIN APP SCREEN ---
+  // --- MAIN APP SCREEN (SIDEBAR ARCHITECTURE) ---
+  const NavButton = ({ id, icon: Icon, label }) => (
+    <button 
+      onClick={() => setActiveTab(id)} 
+      className={`flex items-center gap-4 w-full px-6 py-4 transition-all duration-200 border-l-4 ${
+        activeTab === id 
+          ? "bg-slate-800 border-blue-500 text-white font-bold" 
+          : "border-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200 font-medium"
+      }`}
+    >
+      <Icon size={20} className={activeTab === id ? "text-blue-400" : ""} /> 
+      <span className="text-lg">{label}</span>
+    </button>
+  );
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      <nav className="bg-[#0f172a] text-white px-6 py-4 flex justify-between items-center shadow-lg">
-        <div className="flex items-center gap-2">
-          <Activity className="text-blue-400" />
-          <h1 className="text-xl font-bold tracking-wide">DevPulse</h1>
+    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
+      
+      {/* SIDEBAR NAVIGATION */}
+      <aside className="w-72 bg-[#0f172a] text-white flex flex-col shadow-2xl z-10 flex-shrink-0">
+        <div className="p-8 flex items-center gap-3 border-b border-slate-800">
+          <Activity className="text-blue-500" size={28} />
+          <h1 className="text-2xl font-black tracking-wider">DevPulse</h1>
         </div>
         
-        <div className="flex gap-2">
-          <button onClick={() => setActiveTab("dashboard")} className={`flex items-center gap-2 px-4 py-2 rounded-md transition ${activeTab === "dashboard" ? "bg-blue-600" : "hover:bg-slate-800"}`}>
-            <LayoutDashboard size={18} /> Dashboard
-          </button>
-          <button onClick={() => setActiveTab("leaderboard")} className={`flex items-center gap-2 px-4 py-2 rounded-md transition ${activeTab === "leaderboard" ? "bg-slate-700" : "hover:bg-slate-800"}`}>
-            <Trophy size={18} /> Leaderboard
-          </button>
-          <button onClick={() => {setIsAuthenticated(false); setPassword("");}} className="flex items-center gap-2 px-4 py-2 rounded-md hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition ml-2">
-            <LogOut size={18} />
+        <nav className="flex-1 py-6 flex flex-col gap-2">
+          <div className="px-6 mb-2 text-xs font-bold tracking-widest text-slate-500 uppercase">Analysis Engine</div>
+          <NavButton id="combined" icon={Layers} label="Analyze All" />
+          <NavButton id="cf" icon={Terminal} label="Analyze Codeforces" />
+          <NavButton id="lc" icon={Code} label="Analyze LeetCode" />
+          <NavButton id="ac" icon={Database} label="Analyze AtCoder" />
+          
+          <div className="px-6 mt-8 mb-2 text-xs font-bold tracking-widest text-slate-500 uppercase">Community</div>
+          <NavButton id="leaderboard" icon={Trophy} label="Global Leaderboard" />
+        </nav>
+
+        <div className="p-6 border-t border-slate-800 bg-slate-900/50">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-lg">{globalUsername.charAt(0).toUpperCase()}</div>
+            <div className="flex flex-col">
+              <span className="font-bold">{globalUsername}</span>
+              <span className="text-xs text-slate-400">Developer Profile</span>
+            </div>
+          </div>
+          <button onClick={() => {setIsAuthenticated(false); setPassword("");}} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition font-semibold">
+            <LogOut size={18} /> Disconnect
           </button>
         </div>
-      </nav>
+      </aside>
 
-      <main className="max-w-6xl mx-auto p-6 mt-4">
-        <AnimatePresence mode="wait">
-          {activeTab === "dashboard" ? (
-            <motion.div key="dashboard" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
-              <div className="flex justify-between items-end mb-4">
-                <div>
-                  <h2 className="text-3xl font-bold text-slate-800">Developer Stats</h2>
-                  <p className="text-slate-500 mt-1">Track your competitive programming progress, <span className="font-semibold">{globalUsername}</span>.</p>
-                </div>
-              </div>
-
-              {/* Passes control down to DashboardCards */}
-              <DashboardCards globalUsername={globalUsername} />
-
-            </motion.div>
-          ) : (
-            <motion.div key="leaderboard" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <Leaderboard />
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 overflow-y-auto p-10">
+        <div className="max-w-5xl mx-auto">
+          <AnimatePresence mode="wait">
+            {activeTab === "leaderboard" ? (
+              <motion.div key="leaderboard" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+                <Leaderboard />
+              </motion.div>
+            ) : (
+              <motion.div key="dashboard" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+                <DashboardCards globalUsername={globalUsername} activeTab={activeTab} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </main>
     </div>
   );
