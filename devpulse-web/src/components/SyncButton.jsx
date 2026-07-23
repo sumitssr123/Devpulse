@@ -22,7 +22,7 @@ export default function SyncButton({ username, onSyncSuccess }) {
       
       if (response.ok && data.status === "success") {
         setStatusText("Synced!");
-        if (onSyncSuccess) onSyncSuccess(data); // Send data back to App.jsx
+        if (onSyncSuccess) onSyncSuccess(data); // Send data back to App.jsx/Dashboard
         setTimeout(() => setStatusText("Sync Data"), 2000);
       } else {
         setStatusText("Failed");

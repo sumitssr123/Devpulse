@@ -18,7 +18,7 @@ bool DatabaseManager::initialize() {
     }
     std::cout << "[DB] Successfully connected to SQLite database.\n";
 
-    // UPDATED: Fixed HISTORY_SNAPSHOTS schema to match the data saveProgressSnapshot is sending
+    // UPDATED: Added total_rating and total_solved to USERS table
     std::string sql = R"(
         CREATE TABLE IF NOT EXISTS USERS (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,7 +29,9 @@ bool DatabaseManager::initialize() {
             ac_handle TEXT DEFAULT 'None',
             cf_target INTEGER DEFAULT 1600,
             lc_target INTEGER DEFAULT 300,
-            ac_target INTEGER DEFAULT 1000
+            ac_target INTEGER DEFAULT 1000,
+            total_rating INTEGER DEFAULT 0,
+            total_solved INTEGER DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS HISTORY_SNAPSHOTS (

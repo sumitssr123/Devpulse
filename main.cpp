@@ -4,7 +4,6 @@
 #include "../include/httplib.h" 
 #include <nlohmann/json.hpp> 
 
-// Your existing project includes
 #include "user_model.hpp"
 #include "auth.hpp"
 #include "cache.hpp"
@@ -14,6 +13,34 @@
 #include "../include/database.hpp" 
 
 using json = nlohmann::json;
+
+// --- AUTHENTICATION HELPER ---
+bool handleAuthDatabaseAction(const std::string& username, const std::string& password, const std::string& action) {
+    sqlite3* db;
+    if (sqlite3_open("devpulse.db", &db) != SQLITE_OK) return false;
+    
+    // Safety check: Ensure password column exists without dropping data
+    sqlite3_exec(db, "ALTER TABLE USERS ADD COLUMN password TEXT DEFAULT 'password123';", nullptr, nullptr, nullptr);
+
+    bool success = false;
+    if (action == "register") {
+        std::string sql = "INSERT INTO USERS (username, password) VALUES ('" + username + "', '" + password + "');";
+        success = (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) == SQLITE_OK);
+    } else if (action == "login") {
+        std::string sql = "SELECT id FROM USERS WHERE username = '" + username + "' AND password = '" + password + "';";
+        sqlite3_stmt* stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+            success = (sqlite3_step(stmt) == SQLITE_ROW);
+        }
+        sqlite3_finalize(stmt);
+    } else if (action == "forgot") {
+        std::string sql = "UPDATE USERS SET password = '" + password + "' WHERE username = '" + username + "';";
+        success = (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) == SQLITE_OK);
+    }
+    
+    sqlite3_close(db);
+    return success;
+}
 
 int main() {
     std::cout << "===========================================\n";
@@ -31,19 +58,38 @@ int main() {
 
     httplib::Server svr;
 
-    // 2. GLOBAL CORS CONFIGURATION (Crucial for React!)
+    // 2. GLOBAL CORS CONFIGURATION
     svr.set_post_routing_handler([](const auto& req, auto& res) {
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
     });
     
-    // Handle React's automatic pre-flight OPTIONS requests
     svr.Options(".*", [](const auto& req, auto& res) {
         res.status = 200;
     });
 
-    // 3. API ROUTE 1: Get User Dashboard
+    // 3. API ROUTE: Auth Handler
+    svr.Post("/api/auth", [&](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string action = body.value("action", "login");
+            std::string username = body.value("username", "");
+            std::string password = body.value("password", "");
+
+            if (handleAuthDatabaseAction(username, password, action)) {
+                res.set_content(R"({"status": "success"})", "application/json");
+            } else {
+                res.status = 401;
+                res.set_content(R"({"status": "error", "message": "Authentication failed"})", "application/json");
+            }
+        } catch (...) {
+            res.status = 400;
+            res.set_content(R"({"status": "error"})", "application/json");
+        }
+    });
+
+    // 4. API ROUTE: Get User Dashboard Handles
     svr.Get(R"(/api/user/(.*))", [&](const httplib::Request& req, httplib::Response& res) {
         std::string req_username = req.matches[1];
         UserData userStats = getUserDataFromDB(req_username);
@@ -57,7 +103,30 @@ int main() {
         res.set_content(json_response.dump(), "application/json");
     });
 
-    // 4. API ROUTE 2: Live SYNC Route
+    // 5. API ROUTE: Save specific platform handles
+    svr.Post(R"(/api/user/(.*)/handles)", [&](const httplib::Request& req, httplib::Response& res) {
+        std::string req_username = req.matches[1];
+        
+        try {
+            auto body = json::parse(req.body);
+            std::string cf = body.value("cf_handle", "");
+            std::string lc = body.value("lc_handle", "");
+            std::string ac = body.value("ac_handle", "");
+
+            if (updateHandlesInDB(req_username, cf, lc, ac)) {
+                res.set_content(R"({"status": "success"})", "application/json");
+                std::cout << "[API] Updated handles for " << req_username << "\n";
+            } else {
+                res.status = 500;
+                res.set_content(R"({"error": "Failed to update database"})", "application/json");
+            }
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(R"({"error": "Invalid JSON data"})", "application/json");
+        }
+    });
+
+    // 6. API ROUTE: Live SYNC Route
     svr.Post("/api/sync", [&](const httplib::Request& req, httplib::Response& res) {
         try {
             json req_body = json::parse(req.body);
@@ -82,14 +151,10 @@ int main() {
             PlatformStats lc_stats = fetchLeetcodeData(lc_handle);
             PlatformStats ac_stats = fetchAtcoderData(ac_handle);
 
-            // ---> NEW: Save the aggregated stats to SQLite! <---
             int total_solved = cf_stats.totalSolvedCount + lc_stats.totalSolvedCount + ac_stats.totalSolvedCount;
             int total_rating = cf_stats.rating + lc_stats.rating + ac_stats.rating;
             
-            // Update the live stats for the leaderboard
             updateUserStatsInDB(username, total_solved, total_rating);
-
-            // Save a historical snapshot for future graphs
             saveProgressSnapshot(username, cf_stats.rating, cf_stats.totalSolvedCount, 
                                            lc_stats.rating, lc_stats.totalSolvedCount, 
                                            ac_stats.rating, ac_stats.totalSolvedCount);
@@ -133,11 +198,10 @@ int main() {
         }
     });
 
-    // 5. API ROUTE 3: Leaderboard (NOW REAL DATA)
+    // 7. API ROUTE: Leaderboard
     svr.Get("/api/leaderboard", [&](const httplib::Request& req, httplib::Response& res) {
         json json_response = json::array();
 
-        // Fetch real data from the SQLite database
         std::vector<LeaderboardEntry> topUsers = getLeaderboard();
         
         int rank = 1;
@@ -153,7 +217,6 @@ int main() {
         res.set_content(json_response.dump(), "application/json");
     });
 
-    // 6. Start listening
     std::cout << "[API] Starting DevPulse server on http://localhost:8080\n";
     std::cout << "[API] Press Ctrl+C to stop.\n";
     svr.listen("localhost", 8080);
