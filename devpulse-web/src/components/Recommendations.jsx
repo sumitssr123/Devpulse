@@ -1,89 +1,86 @@
-import React from 'react';
-import { Lightbulb, Target, TrendingUp } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lightbulb, Target, Sparkles, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export default function Recommendations({ analysisMode }) {
-  let targetTopic = "Dynamic Programming";
-  let targetDesc = "Based on combined data across platforms, you are struggling with DP optimizations.";
-  let recList = [
-    { name: "LC: Edit Distance (Hard)", points: "+15 ELO" },
-    { name: "CF: K-Tree (Rating 1500)", points: "+20 Rating" },
-    { name: "CC: Coin Change (Med)", points: "+25 XP" }
-  ];
+// Fetching the API Key securely from the .env file
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
 
-  if (analysisMode === 'cf') {
-    targetTopic = "Segment Trees & Ranges";
-    targetDesc = "Codeforces heavily features range queries in Div2 C/D problems.";
-    recList = [
-      { name: "CF: Sereja and Brackets", points: "+25 Rating" },
-      { name: "CF: Xenia and Bit Operations", points: "+15 Rating" }
-    ];
-  } else if (analysisMode === 'lc') {
-    targetTopic = "Graph Theory (DFS/BFS)";
-    targetDesc = "Your LeetCode times on graph traversals are slower than the platform average.";
-    recList = [
-      { name: "LC: Word Ladder (Hard)", points: "+20 ELO" },
-      { name: "LC: Number of Islands (Med)", points: "+10 ELO" }
-    ];
-  } else if (analysisMode === 'ac') {
-    targetTopic = "Combinatorics & Math";
-    targetDesc = "AtCoder Beginner Contests require very strong Modulo Math logic.";
-    recList = [
-      { name: "AC: Knapsack 2 (DP)", points: "+30 Rating" },
-      { name: "AC: Traveling Salesman", points: "+40 Rating" }
-    ];
-  } else if (analysisMode === 'cc') {
-    targetTopic = "Greedy Algorithms";
-    targetDesc = "CodeChef starters often utilize greedy paradigms for subtask optimizations.";
-    recList = [
-      { name: "CC: Maximize Colors", points: "+20 XP" },
-      { name: "CC: Array Halves", points: "+15 XP" }
-    ];
-  }
+export default function Recommendations({ analysisMode, statsData }) {
+  const [aiAdvice, setAiAdvice] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // Prevent AI call if there is no data to analyze yet
+    if (!statsData) return;
+    generateAIAdvice();
+  }, [analysisMode, statsData]);
+
+  const generateAIAdvice = async () => {
+    setIsLoading(true);
+    try {
+      // Prompt tailored to focus on algorithm optimization, memory management, and theoretical foundations
+      const prompt = `Act as an expert computer science and competitive programming coach. My current status is: 
+      Mode: ${analysisMode}. 
+      Codeforces Rating: ${statsData?.codeforces?.rating || 0}, Solved: ${statsData?.codeforces?.total_solved || 0}. 
+      LeetCode Rating: ${statsData?.leetcode?.rating || 0}, Solved: ${statsData?.leetcode?.total_solved || 0}. 
+      AtCoder Rating: ${statsData?.atcoder?.rating || 0}, Solved: ${statsData?.atcoder?.total_solved || 0}.
+      
+      Give me a highly analytical 3-sentence training strategy. Focus heavily on advanced computer science concepts, algorithm optimization, and theoretical foundations (like memory management or cache design when writing C++ code). Keep it professional and direct. Do not use markdown formatting in the response.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+
+      const data = await response.json();
+      if (data.candidates && data.candidates.length > 0) {
+        setAiAdvice(data.candidates[0].content.parts[0].text);
+      } else {
+        setAiAdvice("Focus on core algorithm optimization and theoretical foundations to improve performance.");
+      }
+    } catch (error) {
+      setAiAdvice("AI Engine offline. Ensure your API key is set correctly in the .env file and you have internet access.");
+    }
+    setIsLoading(false);
+  };
 
   return (
-    <motion.div 
-      key={analysisMode} 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mt-4 bg-white p-8 rounded-3xl shadow-sm border border-slate-100"
-    >
-      <div className="flex items-center gap-3 mb-6">
-        <div className="bg-yellow-100 p-2 rounded-xl text-yellow-600">
-          <Lightbulb size={24} />
+    <motion.div key={analysisMode} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-4 bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="bg-purple-100 p-3 rounded-2xl text-purple-600">
+            <Sparkles size={24} />
+          </div>
+          <h2 className="text-2xl font-black text-slate-800">DevPulse AI Engine</h2>
         </div>
-        <h2 className="text-2xl font-black text-slate-800">Smart Recommendations</h2>
+        <button 
+          onClick={generateAIAdvice} 
+          disabled={isLoading}
+          className="text-sm font-bold text-purple-600 bg-purple-50 px-4 py-2 rounded-lg hover:bg-purple-100 flex items-center gap-2 transition-all disabled:opacity-50"
+        >
+          {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Lightbulb size={16} />}
+          Refresh AI Strategy
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Recommended Topics */}
-        <div className="p-6 border border-blue-100 bg-blue-50/50 rounded-2xl">
-          <div className="flex items-center gap-2 mb-4 text-blue-700 font-bold text-lg">
-            <Target size={20} />
-            <span>Core Focus Areas</span>
-          </div>
-          <div className="flex flex-wrap gap-2 mb-4">
-            <span className="px-4 py-1.5 bg-white border border-blue-200 text-blue-700 rounded-full text-sm font-bold shadow-sm">{targetTopic}</span>
-            {analysisMode === 'combined' && <span className="px-4 py-1.5 bg-white border border-blue-200 text-blue-700 rounded-full text-sm font-bold shadow-sm">Prefix Sums</span>}
-          </div>
-          <p className="text-sm text-slate-500 font-medium">{targetDesc}</p>
+      <div className="p-8 border border-purple-100 bg-gradient-to-br from-purple-50/50 to-white rounded-3xl relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-1 h-full bg-purple-400"></div>
+        <div className="flex items-center gap-2 mb-4 text-purple-800 font-black text-lg">
+          <Target size={20} /> Deep Analysis & Focus
         </div>
-
-        {/* Suggested Problems */}
-        <div className="p-6 border border-emerald-100 bg-emerald-50/50 rounded-2xl">
-          <div className="flex items-center gap-2 mb-4 text-emerald-700 font-bold text-lg">
-            <TrendingUp size={20} />
-            <span>Target Problem Sets</span>
+        
+        {isLoading ? (
+          <div className="flex items-center gap-3 text-slate-400 font-medium animate-pulse">
+            <Loader2 size={20} className="animate-spin" /> Analyzing your metrics and theoretical foundation...
           </div>
-          <ul className="space-y-3 text-sm text-slate-700 font-medium">
-            {recList.map((item, index) => (
-              <li key={index} className="flex justify-between items-center bg-white p-3 rounded-xl border border-emerald-100 shadow-sm cursor-pointer hover:bg-emerald-50 hover:border-emerald-200 transition-all">
-                <span>{item.name}</span>
-                <span className="text-xs font-black text-emerald-600 bg-emerald-100 px-2 py-1 rounded-md">{item.points}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        ) : (
+          <p className="text-[15px] text-slate-700 font-medium leading-relaxed">
+            {aiAdvice || "Sync data to generate personalized algorithmic recommendations."}
+          </p>
+        )}
       </div>
     </motion.div>
   );

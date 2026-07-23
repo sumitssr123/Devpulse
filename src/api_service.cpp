@@ -8,7 +8,7 @@
 
 using json = nlohmann::json;
 
-// --- CODEFORCES API SERVICE (Strict Mode) ---
+// --- CODEFORCES API SERVICE (Strict Mode & Solved Count Fix) ---
 PlatformStats fetchCodeforcesData(const std::string& handle) {
     PlatformStats stats = {0, 0, 0, 0};
     if (handle.empty() || handle == "None") {
@@ -17,22 +17,43 @@ PlatformStats fetchCodeforcesData(const std::string& handle) {
     }
 
     std::cout << "[API Network] Connecting to Codeforces API for: " << handle << "...\n";
-    cpr::Response r = cpr::Get(cpr::Url{"https://codeforces.com/api/user.info?handles=" + handle});
-
-    if (r.status_code == 200) {
+    
+    // 1. Fetch Rating
+    cpr::Response r_info = cpr::Get(cpr::Url{"https://codeforces.com/api/user.info?handles=" + handle});
+    if (r_info.status_code == 200) {
         try {
-            json data = json::parse(r.text);
+            json data = json::parse(r_info.text);
             if (data["status"] == "OK") {
                 stats.rating = data["result"][0].value("rating", 0);
-                stats.totalSolvedCount = 0; // CF API requires a separate complex call for exact solved count
-                std::cout << "[SUCCESS] Codeforces rating fetched: " << stats.rating << "\n";
-                return stats;
             }
         } catch (...) {
-            std::cout << "[ERROR] JSON parse failed for CF.\n";
+            std::cout << "[ERROR] JSON parse failed for CF user.info.\n";
         }
     }
-    throw std::runtime_error("Invalid Codeforces Handle or API Down.");
+
+    // 2. Fetch Solved Count (Iterating through user status)
+    std::cout << "[API Network] Fetching CF submissions to count solved problems...\n";
+    cpr::Response r_status = cpr::Get(cpr::Url{"https://codeforces.com/api/user.status?handle=" + handle});
+    if (r_status.status_code == 200) {
+        try {
+            json status_data = json::parse(r_status.text);
+            if (status_data["status"] == "OK") {
+                int solved = 0;
+                // Count every submission that has an "OK" verdict
+                for (const auto& submission : status_data["result"]) {
+                    if (submission.contains("verdict") && submission["verdict"] == "OK") {
+                        solved++;
+                    }
+                }
+                stats.totalSolvedCount = solved;
+            }
+        } catch (...) {
+            std::cout << "[ERROR] JSON parse failed for CF user.status.\n";
+        }
+    }
+
+    std::cout << "[SUCCESS] Codeforces rating fetched: " << stats.rating << ", Solved: " << stats.totalSolvedCount << "\n";
+    return stats;
 }
 
 // --- LEETCODE API SERVICE (Strict Mode) ---
