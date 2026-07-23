@@ -12,6 +12,7 @@ struct PlatformStats {
     int graphSolvedCount = 0;
     int dpSolvedCount = 0;
     long long lastSyncedTimestamp = 0; 
+    std::vector<std::string> recentProblems; // <--- NEW: To store top 10 recent ACs
 };
 
 struct HistoricalSnapshot {

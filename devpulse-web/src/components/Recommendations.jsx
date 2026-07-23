@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Lightbulb, Target, Sparkles, Loader2 } from 'lucide-react';
+import { Target, Sparkles, Loader2, Database } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-// Fetching the API Key securely from the .env file
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
 
 export default function Recommendations({ analysisMode, statsData }) {
@@ -10,7 +9,6 @@ export default function Recommendations({ analysisMode, statsData }) {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Prevent AI call if there is no data to analyze yet
     if (!statsData) return;
     generateAIAdvice();
   }, [analysisMode, statsData]);
@@ -18,20 +16,38 @@ export default function Recommendations({ analysisMode, statsData }) {
   const generateAIAdvice = async () => {
     setIsLoading(true);
     try {
-      // Prompt tailored to focus on algorithm optimization, memory management, and theoretical foundations
-      const prompt = `Act as an expert computer science and competitive programming coach. My current status is: 
-      Mode: ${analysisMode}. 
-      Codeforces Rating: ${statsData?.codeforces?.rating || 0}, Solved: ${statsData?.codeforces?.total_solved || 0}. 
-      LeetCode Rating: ${statsData?.leetcode?.rating || 0}, Solved: ${statsData?.leetcode?.total_solved || 0}. 
-      AtCoder Rating: ${statsData?.atcoder?.rating || 0}, Solved: ${statsData?.atcoder?.total_solved || 0}.
-      
-      Give me a highly analytical 3-sentence training strategy. Focus heavily on advanced computer science concepts, algorithm optimization, and theoretical foundations (like memory management or cache design when writing C++ code). Keep it professional and direct. Do not use markdown formatting in the response.`;
+      // Safely parse recent problems (assuming backend sends them as an array of strings)
+      const cfRecent = statsData?.codeforces?.recent_problems?.join(", ") || "No recent data";
+      const lcRecent = statsData?.leetcode?.recent_problems?.join(", ") || "No recent data";
+      const acRecent = statsData?.atcoder?.recent_problems?.join(", ") || "No recent data";
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      const prompt = `Act as an elite systems and algorithms coach. 
+      Mode: ${analysisMode}. 
+      Codeforces: Rating ${statsData?.codeforces?.rating || 0}, Solved ${statsData?.codeforces?.total_solved || 0}. 
+      Recent CF Problems: [${cfRecent}]
+      
+      LeetCode: Rating ${statsData?.leetcode?.rating || 0}, Solved ${statsData?.leetcode?.total_solved || 0}. 
+      Recent LC Problems: [${lcRecent}]
+      
+      AtCoder: Rating ${statsData?.atcoder?.rating || 0}, Solved ${statsData?.atcoder?.total_solved || 0}.
+      Recent AC Problems: [${acRecent}]
+      
+      Provide a highly analytical, 5 to 10 line personalized training strategy. 
+      CRITICAL INSTRUCTIONS: 
+      1. Give a completely UNIQUE response every time. Do not repeat previous advice.
+      2. Analyze the exact topics of my RECENTLY SOLVED problems provided above.
+      3. Focus your recommendations heavily on advanced computer science concepts, memory management, cache design, network protocols, or algorithm optimization.
+      Do not use markdown formatting. Keep the tone professional, direct, and highly technical.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.9, // Higher temp for unique answers
+            maxOutputTokens: 300,
+          }
         })
       });
 
@@ -39,45 +55,53 @@ export default function Recommendations({ analysisMode, statsData }) {
       if (data.candidates && data.candidates.length > 0) {
         setAiAdvice(data.candidates[0].content.parts[0].text);
       } else {
-        setAiAdvice("Focus on core algorithm optimization and theoretical foundations to improve performance.");
+        setAiAdvice("Focus on core algorithm optimization and memory systems to improve performance.");
       }
     } catch (error) {
-      setAiAdvice("AI Engine offline. Ensure your API key is set correctly in the .env file and you have internet access.");
+      setAiAdvice("AI Engine offline. Ensure your API key is set correctly in the .env file.");
     }
     setIsLoading(false);
   };
 
   return (
-    <motion.div key={analysisMode} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-4 bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="bg-purple-100 p-3 rounded-2xl text-purple-600">
-            <Sparkles size={24} />
+    <motion.div 
+      key={analysisMode} 
+      initial={{ opacity: 0, y: 20 }} 
+      animate={{ opacity: 1, y: 0 }} 
+      className="mt-6 bg-[#0f172a] p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-700"
+    >
+      <div className="flex items-center justify-between mb-8 border-b border-slate-700 pb-4">
+        <div className="flex items-center gap-4">
+          <div className="bg-indigo-500/20 p-3 rounded-2xl text-indigo-400">
+            <Sparkles size={28} />
           </div>
-          <h2 className="text-2xl font-black text-slate-800">DevPulse AI Engine</h2>
+          <h2 className="text-2xl font-black text-slate-100">AI Deep Analysis</h2>
         </div>
         <button 
           onClick={generateAIAdvice} 
           disabled={isLoading}
-          className="text-sm font-bold text-purple-600 bg-purple-50 px-4 py-2 rounded-lg hover:bg-purple-100 flex items-center gap-2 transition-all disabled:opacity-50"
+          className="text-sm font-bold text-white bg-indigo-600 px-5 py-2.5 rounded-xl hover:bg-indigo-500 flex items-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/20"
         >
-          {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Lightbulb size={16} />}
-          Refresh AI Strategy
+          {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Database size={18} />}
+          Fetch Deep Strategy
         </button>
       </div>
 
-      <div className="p-8 border border-purple-100 bg-gradient-to-br from-purple-50/50 to-white rounded-3xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-1 h-full bg-purple-400"></div>
-        <div className="flex items-center gap-2 mb-4 text-purple-800 font-black text-lg">
-          <Target size={20} /> Deep Analysis & Focus
+      <div className="p-6 sm:p-8 bg-slate-800/50 rounded-2xl border border-slate-700 relative overflow-hidden">
+        {/* Left highlight bar */}
+        <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
+        
+        <div className="flex items-center gap-3 mb-4 text-indigo-300 font-bold text-lg uppercase tracking-wide">
+          <Target size={22} /> Strategic Focus
         </div>
         
         {isLoading ? (
-          <div className="flex items-center gap-3 text-slate-400 font-medium animate-pulse">
-            <Loader2 size={20} className="animate-spin" /> Analyzing your metrics and theoretical foundation...
+          <div className="flex items-center gap-3 text-slate-400 font-medium animate-pulse mt-6">
+            <Loader2 size={24} className="animate-spin text-indigo-400" /> 
+            <span>Extracting memory patterns from recent 30 problem submissions...</span>
           </div>
         ) : (
-          <p className="text-[15px] text-slate-700 font-medium leading-relaxed">
+          <p className="text-[15px] sm:text-[16px] text-slate-300 font-medium leading-relaxed whitespace-pre-wrap">
             {aiAdvice || "Sync data to generate personalized algorithmic recommendations."}
           </p>
         )}
