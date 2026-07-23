@@ -120,14 +120,13 @@ int main() {
                 res.status = 500;
                 res.set_content(R"({"error": "Failed to update database"})", "application/json");
             }
-        // WARNING FIX: Removed the unused 'e' variable below
         } catch (const std::exception&) { 
             res.status = 400;
             res.set_content(R"({"error": "Invalid JSON data"})", "application/json");
         }
     });
 
-    // 6. API ROUTE: Live SYNC Route
+    // 6. API ROUTE: Live SYNC Route (ADVANCED ERROR HANDLING ADDED)
     svr.Post("/api/sync", [&](const httplib::Request& req, httplib::Response& res) {
         try {
             json req_body = json::parse(req.body);
@@ -148,12 +147,20 @@ int main() {
             std::string lc_handle = !userStats.lc_handle.empty() ? userStats.lc_handle : username;
             std::string ac_handle = !userStats.ac_handle.empty() ? userStats.ac_handle : username;
 
-            PlatformStats cf_stats = fetchCodeforcesData(cf_handle);
-            PlatformStats lc_stats = fetchLeetcodeData(lc_handle);
-            PlatformStats ac_stats = fetchAtcoderData(ac_handle);
+            // ADVANCED FIX: Initialized variables to prevent garbage values
+            PlatformStats cf_stats = {0, 0, 0, 0};
+            PlatformStats lc_stats = {0, 0, 0, 0};
+            PlatformStats ac_stats = {0, 0, 0, 0};
 
+            // ADVANCED FIX: Independent Try-Catch for each platform. 
+            // If AtCoder fails, LeetCode and Codeforces will still sync perfectly!
+            try { cf_stats = fetchCodeforcesData(cf_handle); } catch (...) { std::cerr << "[WARNING] CF Fetch failed.\n"; }
+            try { lc_stats = fetchLeetcodeData(lc_handle); } catch (...) { std::cerr << "[WARNING] LC Fetch failed.\n"; }
+            try { ac_stats = fetchAtcoderData(ac_handle); } catch (...) { std::cerr << "[WARNING] AC Fetch failed.\n"; }
+
+            // ADVANCED FIX: Only Total Solved is summed. Ratings are kept completely independent!
             int total_solved = cf_stats.totalSolvedCount + lc_stats.totalSolvedCount + ac_stats.totalSolvedCount;
-            int total_rating = cf_stats.rating + lc_stats.rating + ac_stats.rating;
+            int total_rating = 0; // We explicitly set this to 0 because summing ratings is illogical
             
             updateUserStatsInDB(username, total_solved, total_rating);
             saveProgressSnapshot(username, cf_stats.rating, cf_stats.totalSolvedCount, 
@@ -211,7 +218,7 @@ int main() {
                 {"rank", rank++},
                 {"username", u.username},
                 {"total_solved", u.total_solved},
-                {"total_rating", u.total_rating}
+                {"total_rating", u.total_rating} // Note: total_rating is now 0 as we stopped summing it
             });
         }
 
